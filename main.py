@@ -4,6 +4,7 @@ from poker.calculator import PokerCalculator
 from poker.recommendations import RecommendationEngine
 from components.ui_elements import (
     inject_custom_css,
+    create_quick_start_guide,
     create_quick_hand_selector,
     create_community_cards_selector,
     create_betting_controls,
@@ -19,6 +20,8 @@ def initialize_session_state():
         st.session_state.minimal_mode = False
     if 'window_docked' not in st.session_state:
         st.session_state.window_docked = False
+    if 'loading' not in st.session_state:
+        st.session_state.loading = False
 
 def main():
     st.set_page_config(
@@ -30,29 +33,33 @@ def main():
     initialize_session_state()
     inject_custom_css()
     
-    # Top controls
+    # Header section with controls
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         st.title("Poker Assistant")
     with col2:
-        st.session_state.minimal_mode = st.toggle('Minimal Mode', st.session_state.minimal_mode)
+        st.session_state.minimal_mode = st.toggle('Minimal Mode 🔄', st.session_state.minimal_mode, help="Toggle between full and minimal display")
     with col3:
-        st.session_state.window_docked = st.toggle('Dock Window', st.session_state.window_docked)
+        st.session_state.window_docked = st.toggle('Dock Window 📌', st.session_state.window_docked, help="Keep window on top")
     
-    if st.session_state.minimal_mode:
-        st.markdown('<style>div[data-testid="stVerticalBlock"] > div:not(.streamlit-expanderHeader) { margin-bottom: 0.5rem; }</style>', unsafe_allow_html=True)
+    # Quick Start Guide
+    if not st.session_state.minimal_mode:
+        create_quick_start_guide()
     
     # Main content with reduced spacing
-    st.markdown('<div style="margin-top: -2rem;">', unsafe_allow_html=True)
+    st.markdown('<div class="section-container">', unsafe_allow_html=True)
     
-    # Quick hand selection
+    # Hand selection section
+    st.markdown('<div class="section-title">🎴 Your Hand</div>', unsafe_allow_html=True)
     card1, card2 = create_quick_hand_selector()
     if card1 and card2 and card1 != card2:
         st.session_state.hole_cards = [card1, card2]
+        if not st.session_state.minimal_mode:
+            st.success("Hand selected successfully!")
     
-    # Community cards (single line)
+    # Community cards section
     if not st.session_state.minimal_mode:
-        st.subheader("Community Cards")
+        st.markdown('<div class="section-title">🃏 Community Cards</div>', unsafe_allow_html=True)
     community_cards = create_community_cards_selector()
     
     # Position and betting controls
@@ -60,23 +67,33 @@ def main():
     
     with col1:
         if not st.session_state.minimal_mode:
-            st.subheader("Position")
+            st.markdown('<div class="section-title">🎯 Position</div>', unsafe_allow_html=True)
         position = create_quick_position_selector()
     
     with col2:
         if not st.session_state.minimal_mode:
-            st.subheader("Betting Info")
+            st.markdown('<div class="section-title">💰 Betting</div>', unsafe_allow_html=True)
         stack, pot, to_call = create_betting_controls()
     
-    # Generate recommendation
+    # Generate recommendation section
+    st.markdown('<div class="section-container">', unsafe_allow_html=True)
     col1, col2 = st.columns([4, 1])
     with col2:
-        get_rec = st.button("Get Recommendation", type="primary", key='get_rec')
+        get_rec = st.button(
+            "Get Recommendation 🎯",
+            type="primary",
+            key='get_rec',
+            help="Calculate the optimal play (Enter)",
+            use_container_width=True
+        )
     
     if get_rec or st.session_state.get('enter_pressed', False):
         if not st.session_state.hole_cards:
-            st.error("Please select your hole cards first!")
+            st.error("⚠️ Please select your hole cards first!")
         else:
+            st.session_state.loading = True
+            st.markdown('<div class="loading">Calculating optimal play...</div>', unsafe_allow_html=True)
+            
             engine = RecommendationEngine()
             recommendation = engine.get_recommendation(
                 st.session_state.hole_cards,
@@ -87,11 +104,12 @@ def main():
                 stack
             )
             
+            st.session_state.loading = False
             display_recommendation(recommendation, st.session_state.minimal_mode)
     
-    # Basic stats in minimal or expanded mode
+    # Statistics section
     if not st.session_state.minimal_mode and st.session_state.hole_cards:
-        with st.expander("Basic Statistics", expanded=False):
+        with st.expander("📊 Detailed Statistics", expanded=False):
             evaluator = HandEvaluator()
             calculator = PokerCalculator()
             
@@ -104,8 +122,8 @@ def main():
             
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("Hand Strength", f"{strength:.1%}")
-                st.metric("Pot Odds", f"{pot_odds:.1%}")
+                st.metric("Hand Strength 💪", f"{strength:.1%}")
+                st.metric("Pot Odds 🎲", f"{pot_odds:.1%}")
             
             if len(community_cards) < 5:
                 with col2:
@@ -113,20 +131,10 @@ def main():
                         st.session_state.hole_cards,
                         community_cards
                     )
-                    st.metric("Positive Potential", f"{pos_pot:.1%}")
-                    st.metric("Negative Potential", f"{neg_pot:.1%}")
+                    st.metric("Positive Potential 📈", f"{pos_pot:.1%}")
+                    st.metric("Negative Potential 📉", f"{neg_pot:.1%}")
     
-    # Handle keyboard shortcuts
-    st.markdown("""
-        <script>
-        // Keyboard shortcut handling
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                document.querySelector('button[data-testid="get_rec"]').click();
-            }
-        });
-        </script>
-    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
