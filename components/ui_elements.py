@@ -25,19 +25,40 @@ def inject_custom_css():
             max-width: 1200px !important;
         }
 
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
         .section-container {
             margin-bottom: 1.5rem;
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 1.5rem;
         }
 
+        .section-container.prominent {
+            background-color: var(--background-dark);
+            border: 2px solid var(--primary-color);
+            padding: 1.5rem;
+            border-radius: 12px;
+        }
+
         .section-title {
             color: var(--text-color);
-            font-size: 1.2rem;
+            font-size: 1.4rem;
             margin-bottom: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            font-weight: bold;
+        }
+
+        .section-subtitle {
+            color: var(--text-color);
+            font-size: 1.1rem;
+            margin: 1rem 0;
+            font-weight: bold;
         }
 
         /* Card styles with improved visuals */
@@ -55,24 +76,51 @@ def inject_custom_css():
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
+        /* Street separation in community cards */
+        .street-separator {
+            border-left: 2px solid var(--primary-color);
+            margin: 0.5rem 0;
+            padding-top: 1rem;
+        }
+
+        /* Stack size unit label */
+        .stack-size-unit {
+            margin-top: 30px;
+            color: var(--text-color);
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        /* Recommendation button container */
+        .recommendation-button-container {
+            margin-top: 2rem;
+            padding: 1rem;
+            background-color: var(--background-dark);
+            border-radius: 8px;
+            border: 2px solid var(--primary-color);
+        }
+
         /* Interactive elements */
         .quick-button {
             background-color: var(--primary-color);
             color: var(--text-color);
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
             margin: 0.25rem;
             cursor: pointer;
             border: none;
-            font-size: 14px;
+            font-size: 16px;
+            font-weight: bold;
             transition: all 0.2s;
             position: relative;
             overflow: hidden;
+            width: 100%;
         }
 
         .quick-button:hover {
             background-color: var(--primary-dark);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
         .quick-button:active {
@@ -91,6 +139,7 @@ def inject_custom_css():
         .tooltip {
             position: relative;
             display: inline-block;
+            width: 100%;
         }
 
         .tooltip .tooltip-text {
@@ -98,7 +147,7 @@ def inject_custom_css():
             background-color: var(--background-dark);
             color: var(--text-color);
             text-align: center;
-            padding: 5px 10px;
+            padding: 8px 12px;
             border-radius: 6px;
             position: absolute;
             z-index: 1;
@@ -107,7 +156,7 @@ def inject_custom_css():
             transform: translateX(-50%);
             opacity: 0;
             transition: opacity 0.3s;
-            font-size: 12px;
+            font-size: 14px;
             white-space: nowrap;
             border: 1px solid var(--border-color);
         }
@@ -123,7 +172,7 @@ def inject_custom_css():
             right: 8px;
             top: 8px;
             background: rgba(255,255,255,0.1);
-            padding: 2px 6px;
+            padding: 4px 8px;
             border-radius: 4px;
             font-size: 12px;
             color: var(--text-secondary);
@@ -138,30 +187,9 @@ def inject_custom_css():
 
         .loading {
             animation: pulse 1.5s infinite;
-        }
-
-        /* Quick Start Guide */
-        .quick-start {
-            background-color: var(--background-card);
-            border: 1px solid var(--primary-color);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .quick-start h3 {
+            text-align: center;
+            font-size: 1.2rem;
             color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .quick-start ol {
-            margin: 0;
-            padding-left: 1.5rem;
-        }
-
-        .quick-start li {
-            margin-bottom: 0.5rem;
-            color: var(--text-secondary);
         }
 
         /* Action colors */
@@ -182,32 +210,45 @@ def inject_custom_css():
         </style>
     """, unsafe_allow_html=True)
 
-def create_quick_start_guide():
-    """Create a collapsible quick start guide"""
-    with st.expander("📚 Quick Start Guide", expanded=False):
-        st.markdown("""
-        <div class="quick-start">
-            <h3>How to Use the Poker Assistant</h3>
-            <ol>
-                <li>Select your hole cards using the top selectors (use number keys 2-9 and T,J,Q,K,A)</li>
-                <li>Add community cards as they appear on the table</li>
-                <li>Select your position (BTN = Button, CO = Cutoff, etc.)</li>
-                <li>Enter the current pot size and amount to call</li>
-                <li>Press Enter or click "Get Recommendation" for advice</li>
-            </ol>
-            <h3>Keyboard Shortcuts</h3>
-            <ul>
-                <li>Enter: Get recommendation</li>
-                <li>Numbers (2-9) & T,J,Q,K,A: Quick card selection</li>
-                <li>Tab: Navigate between inputs</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+def create_stack_size_input() -> float:
+    """Create a prominent stack size input"""
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        stack = st.number_input(
+            'Your Stack Size',
+            min_value=0.0,
+            value=st.session_state.stack_size,
+            step=1.0,
+            key='stack_size_input',
+            help="Enter your current stack size in big blinds"
+        )
+    with col2:
+        st.markdown('<div class="stack-size-unit">BB</div>', unsafe_allow_html=True)
+    return stack
+
+def create_quick_position_selector() -> str:
+    """Create a quick position selector with prominent buttons"""
+    positions = {
+        'BTN': ('Button', 'Last to act preflop, best position'),
+        'CO': ('Cutoff', 'Second-best position, one before button'),
+        'MP': ('Middle', 'Middle position, average playability'),
+        'EP': ('Early', 'First positions to act, be cautious'),
+        'BB': ('Big Blind', 'Must defend against steals'),
+        'SB': ('Small Blind', 'Worst position, act first postflop')
+    }
+    
+    cols = st.columns(len(positions))
+    selected_position = None
+    
+    for i, (pos, (label, tooltip)) in enumerate(positions.items()):
+        with cols[i]:
+            if st.button(label, key=f'pos_{pos}', help=tooltip):
+                selected_position = pos
+    
+    return selected_position
 
 def create_quick_hand_selector() -> Tuple[str, str]:
     """Create a quick hand selection interface"""
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    
     cols = st.columns([3, 3, 1])
     
     with cols[0]:
@@ -243,69 +284,24 @@ def create_quick_hand_selector() -> Tuple[str, str]:
             help="Select the suit of your second card",
             label_visibility='collapsed'
         )
-
+    
     with cols[2]:
         st.markdown('<div class="shortcut-hint">2-9,T,J,Q,K,A</div>', unsafe_allow_html=True)
         if st.button('Clear', key='clear_hand', help="Clear your hole cards selection"):
             return "", ""
-
-    st.markdown('</div>', unsafe_allow_html=True)
     
     if rank1 and suit1 and rank2 and suit2:
         suit_map = {'♣': 'c', '♦': 'd', '♥': 'h', '♠': 's'}
         return f"{rank1}{suit_map[suit1]}", f"{rank2}{suit_map[suit2]}"
     return "", ""
 
-def create_community_cards_selector() -> List[str]:
-    """Create a single-line community cards selector"""
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Community Cards</div>', unsafe_allow_html=True)
-    
-    cols = st.columns(5)
-    community_cards = []
-    
-    for i, street in enumerate(['Flop', 'Flop', 'Flop', 'Turn', 'River']):
-        with cols[i]:
-            rank = st.selectbox(
-                f'{street} Card {i+1}',
-                [''] + list('23456789TJQKA'),
-                key=f'comm_rank{i}',
-                help=f"Select the rank of the {street} card"
-            )
-            suit = st.selectbox(
-                f'Suit {i+1}',
-                [''] + list('♣♦♥♠'),
-                key=f'comm_suit{i}',
-                help=f"Select the suit of the {street} card",
-                label_visibility='collapsed'
-            )
-            
-            if rank and suit:
-                suit_map = {'♣': 'c', '♦': 'd', '♥': 'h', '♠': 's'}
-                card = f"{rank}{suit_map[suit]}"
-                community_cards.append(card)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    return community_cards
-
-def create_betting_controls() -> Tuple[float, float, float]:
+def create_betting_controls() -> Tuple[float, float]:
     """Create compact betting controls with presets"""
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Betting Information</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">💰 Betting Information</div>', unsafe_allow_html=True)
     
-    cols = st.columns([2, 2, 2])
+    cols = st.columns([1, 1])
     
     with cols[0]:
-        stack = st.number_input(
-            'Stack Size',
-            min_value=0.0,
-            value=100.0,
-            step=1.0,
-            key='stack_size',
-            help="Your current stack size in big blinds"
-        )
-        
-    with cols[1]:
         pot = st.number_input(
             'Pot Size',
             min_value=0.0,
@@ -314,8 +310,8 @@ def create_betting_controls() -> Tuple[float, float, float]:
             key='pot_size',
             help="Current pot size including all bets"
         )
-        
-    with cols[2]:
+    
+    with cols[1]:
         to_call = st.number_input(
             'Amount to Call',
             min_value=0.0,
@@ -342,33 +338,118 @@ def create_betting_controls() -> Tuple[float, float, float]:
         </div>
     ''', unsafe_allow_html=True)
     
-    st.markdown('</div>', unsafe_allow_html=True)
-    return stack, pot, to_call
+    return pot, to_call
 
-def create_quick_position_selector() -> str:
-    """Create a quick position selector with buttons"""
+def create_community_cards_selector() -> List[str]:
+    """Create a community cards selector with street separation"""
+    community_cards = []
+    
+    # Flop
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Table Position</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">Flop</div>', unsafe_allow_html=True)
+    flop_cols = st.columns(3)
+    for i in range(3):
+        with flop_cols[i]:
+            rank = st.selectbox(
+                f'Flop Card {i+1}',
+                [''] + list('23456789TJQKA'),
+                key=f'flop_rank{i}',
+                help=f"Select the rank of flop card {i+1}"
+            )
+            suit = st.selectbox(
+                f'Suit {i+1}',
+                [''] + list('♣♦♥♠'),
+                key=f'flop_suit{i}',
+                help=f"Select the suit of flop card {i+1}",
+                label_visibility='collapsed'
+            )
+            if rank and suit:
+                suit_map = {'♣': 'c', '♦': 'd', '♥': 'h', '♠': 's'}
+                community_cards.append(f"{rank}{suit_map[suit]}")
     
-    positions = {
-        'BTN': ('Button', 'Last to act preflop, best position'),
-        'CO': ('Cutoff', 'Second-best position, one before button'),
-        'MP': ('Middle', 'Middle position, average playability'),
-        'EP': ('Early', 'First positions to act, be cautious'),
-        'BB': ('Big Blind', 'Must defend against steals'),
-        'SB': ('Small Blind', 'Worst position, act first postflop')
-    }
+    # Turn
+    if len(community_cards) == 3:
+        st.markdown('<div class="street-separator"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">Turn</div>', unsafe_allow_html=True)
+        turn_col1, turn_col2 = st.columns([1, 3])
+        with turn_col1:
+            rank = st.selectbox(
+                'Turn Card',
+                [''] + list('23456789TJQKA'),
+                key='turn_rank',
+                help="Select the rank of the turn card"
+            )
+            suit = st.selectbox(
+                'Turn Suit',
+                [''] + list('♣♦♥♠'),
+                key='turn_suit',
+                help="Select the suit of the turn card",
+                label_visibility='collapsed'
+            )
+            if rank and suit:
+                suit_map = {'♣': 'c', '♦': 'd', '♥': 'h', '♠': 's'}
+                community_cards.append(f"{rank}{suit_map[suit]}")
     
-    cols = st.columns(len(positions))
-    selected_position = None
-    
-    for i, (pos, (label, tooltip)) in enumerate(positions.items()):
-        with cols[i]:
-            if st.button(label, key=f'pos_{pos}', help=tooltip):
-                selected_position = pos
+    # River
+    if len(community_cards) == 4:
+        st.markdown('<div class="street-separator"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-subtitle">River</div>', unsafe_allow_html=True)
+        river_col1, river_col2 = st.columns([1, 3])
+        with river_col1:
+            rank = st.selectbox(
+                'River Card',
+                [''] + list('23456789TJQKA'),
+                key='river_rank',
+                help="Select the rank of the river card"
+            )
+            suit = st.selectbox(
+                'River Suit',
+                [''] + list('♣♦♥♠'),
+                key='river_suit',
+                help="Select the suit of the river card",
+                label_visibility='collapsed'
+            )
+            if rank and suit:
+                suit_map = {'♣': 'c', '♦': 'd', '♥': 'h', '♠': 's'}
+                community_cards.append(f"{rank}{suit_map[suit]}")
     
     st.markdown('</div>', unsafe_allow_html=True)
-    return selected_position
+    return community_cards
+
+def get_street_name(community_cards: List[str]) -> str:
+    """Get the current street name based on community cards"""
+    if not community_cards:
+        return "Pre-flop"
+    elif len(community_cards) == 3:
+        return "Flop"
+    elif len(community_cards) == 4:
+        return "Turn"
+    elif len(community_cards) == 5:
+        return "River"
+    return "Pre-flop"
+
+def create_quick_start_guide():
+    """Create a collapsible quick start guide"""
+    with st.expander("📚 Quick Start Guide", expanded=False):
+        st.markdown("""
+        <div class="quick-start">
+            <h3>How to Use the Poker Assistant</h3>
+            <ol>
+                <li>Enter your stack size in big blinds</li>
+                <li>Select your table position</li>
+                <li>Choose your hole cards</li>
+                <li>Enter the current pot size and any bet to call</li>
+                <li>Add community cards as they appear</li>
+                <li>Get street-specific recommendations</li>
+            </ol>
+            <h3>Keyboard Shortcuts</h3>
+            <ul>
+                <li>Enter: Get recommendation</li>
+                <li>Numbers (2-9) & T,J,Q,K,A: Quick card selection</li>
+                <li>Tab: Navigate between inputs</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
 def display_recommendation(recommendation: dict, minimal: bool = False):
     """Display the recommendation with styling"""

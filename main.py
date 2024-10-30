@@ -5,11 +5,13 @@ from poker.recommendations import RecommendationEngine
 from components.ui_elements import (
     inject_custom_css,
     create_quick_start_guide,
-    create_quick_hand_selector,
-    create_community_cards_selector,
-    create_betting_controls,
+    create_stack_size_input,
     create_quick_position_selector,
-    display_recommendation
+    create_quick_hand_selector,
+    create_betting_controls,
+    create_community_cards_selector,
+    display_recommendation,
+    get_street_name
 )
 
 def initialize_session_state():
@@ -22,6 +24,8 @@ def initialize_session_state():
         st.session_state.window_docked = False
     if 'loading' not in st.session_state:
         st.session_state.loading = False
+    if 'stack_size' not in st.session_state:
+        st.session_state.stack_size = 100.0
 
 def main():
     st.set_page_config(
@@ -46,10 +50,21 @@ def main():
     if not st.session_state.minimal_mode:
         create_quick_start_guide()
     
-    # Main content with reduced spacing
-    st.markdown('<div class="section-container">', unsafe_allow_html=True)
+    # Main content
+    st.markdown('<div class="main-content">', unsafe_allow_html=True)
     
-    # Hand selection section
+    # 1. Stack Size Section (Top Priority)
+    st.markdown('<div class="section-container prominent">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">💰 Stack Size</div>', unsafe_allow_html=True)
+    stack = create_stack_size_input()
+    
+    # 2. Position Selection
+    st.markdown('<div class="section-container">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">🎯 Table Position</div>', unsafe_allow_html=True)
+    position = create_quick_position_selector()
+    
+    # 3. Hole Cards Selection
+    st.markdown('<div class="section-container">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">🎴 Your Hand</div>', unsafe_allow_html=True)
     card1, card2 = create_quick_hand_selector()
     if card1 and card2 and card1 != card2:
@@ -57,35 +72,27 @@ def main():
         if not st.session_state.minimal_mode:
             st.success("Hand selected successfully!")
     
-    # Community cards section
-    if not st.session_state.minimal_mode:
-        st.markdown('<div class="section-title">🃏 Community Cards</div>', unsafe_allow_html=True)
+    # 4. Betting Information
+    st.markdown('<div class="section-container">', unsafe_allow_html=True)
+    pot, to_call = create_betting_controls()
+    
+    # 5. Community Cards
+    st.markdown('<div class="section-container">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">🃏 Community Cards</div>', unsafe_allow_html=True)
     community_cards = create_community_cards_selector()
     
-    # Position and betting controls
-    col1, col2 = st.columns([1, 2])
+    # 6. Get Recommendation Button
+    street = get_street_name(community_cards)
+    rec_button_text = f"Get {street} Play Recommendation 🎯"
     
-    with col1:
-        if not st.session_state.minimal_mode:
-            st.markdown('<div class="section-title">🎯 Position</div>', unsafe_allow_html=True)
-        position = create_quick_position_selector()
-    
-    with col2:
-        if not st.session_state.minimal_mode:
-            st.markdown('<div class="section-title">💰 Betting</div>', unsafe_allow_html=True)
-        stack, pot, to_call = create_betting_controls()
-    
-    # Generate recommendation section
-    st.markdown('<div class="section-container">', unsafe_allow_html=True)
-    col1, col2 = st.columns([4, 1])
-    with col2:
-        get_rec = st.button(
-            "Get Recommendation 🎯",
-            type="primary",
-            key='get_rec',
-            help="Calculate the optimal play (Enter)",
-            use_container_width=True
-        )
+    st.markdown('<div class="recommendation-button-container">', unsafe_allow_html=True)
+    get_rec = st.button(
+        rec_button_text,
+        type="primary",
+        key='get_rec',
+        help=f"Calculate the optimal {street.lower()} play (Enter)",
+        use_container_width=True
+    )
     
     if get_rec or st.session_state.get('enter_pressed', False):
         if not st.session_state.hole_cards:
