@@ -14,6 +14,7 @@ from components.ui_elements import (
     display_recommendation,
     get_street_name
 )
+from components.tournament_ui import create_tournament_controls
 
 def initialize_session_state():
     """Initialize session state variables"""
@@ -30,7 +31,7 @@ def initialize_session_state():
     if 'selected_position' not in st.session_state:
         st.session_state.selected_position = None
     if 'player_id' not in st.session_state:
-        st.session_state.player_id = "default_player"  # You might want to implement proper user management
+        st.session_state.player_id = "default_player"
 
 def display_player_profile():
     """Display player profile and analysis"""
@@ -41,7 +42,6 @@ def display_player_profile():
         if 'error' not in profile_data:
             st.markdown("### 📊 Player Profile Analysis")
             
-            # Display general statistics
             col1, col2 = st.columns(2)
             with col1:
                 st.metric("Total Hands", profile_data['stats']['total_hands'])
@@ -50,12 +50,10 @@ def display_player_profile():
                 st.metric("Profit/Loss", f"${profile_data['stats']['profit_loss']:.2f}")
                 st.metric("Showdown Frequency", f"{profile_data['stats']['showdown_frequency']:.1%}")
             
-            # Display AI analysis
             with st.expander("🤖 AI Analysis", expanded=False):
                 if 'analysis' in profile_data:
                     st.markdown(profile_data['analysis'].get('analysis', ''))
             
-            # Display hand insights
             with st.expander("🎯 Hand Performance Insights", expanded=False):
                 if 'hand_insights' in profile_data:
                     st.markdown(profile_data['hand_insights'].get('insights', ''))
@@ -79,16 +77,16 @@ def main():
     with col3:
         st.session_state.window_docked = st.toggle('Dock Window 📌', st.session_state.window_docked)
     
-    # Quick Start Guide
     if not st.session_state.minimal_mode:
         create_quick_start_guide()
     
-    # Main content
     st.markdown('<div class="main-content">', unsafe_allow_html=True)
     
-    # Player Profile Section
     if not st.session_state.minimal_mode:
         display_player_profile()
+    
+    # Tournament Controls
+    tournament_info = create_tournament_controls()
     
     # 1. Stack Size Section
     st.markdown('<div class="section-container prominent">', unsafe_allow_html=True)
@@ -147,7 +145,8 @@ def main():
                 position,
                 pot,
                 to_call,
-                stack
+                stack,
+                tournament_info=tournament_info
             )
             
             st.session_state.loading = False
