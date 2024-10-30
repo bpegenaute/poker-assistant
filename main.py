@@ -2,6 +2,7 @@ import streamlit as st
 from poker.evaluator import HandEvaluator
 from poker.calculator import PokerCalculator
 from poker.recommendations import RecommendationEngine
+from poker.ai_analysis import AIAnalysis
 from components.ui_elements import (
     inject_custom_css,
     create_quick_start_guide,
@@ -28,6 +29,36 @@ def initialize_session_state():
         st.session_state.stack_size = 100.0
     if 'selected_position' not in st.session_state:
         st.session_state.selected_position = None
+    if 'player_id' not in st.session_state:
+        st.session_state.player_id = "default_player"  # You might want to implement proper user management
+
+def display_player_profile():
+    """Display player profile and analysis"""
+    if st.session_state.player_id:
+        ai_analyzer = AIAnalysis()
+        profile_data = ai_analyzer.update_player_profile(st.session_state.player_id)
+        
+        if 'error' not in profile_data:
+            st.markdown("### 📊 Player Profile Analysis")
+            
+            # Display general statistics
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Total Hands", profile_data['stats']['total_hands'])
+                st.metric("Win Rate", f"{profile_data['stats'].get('win_rate', 0):.1%}")
+            with col2:
+                st.metric("Profit/Loss", f"${profile_data['stats']['profit_loss']:.2f}")
+                st.metric("Showdown Frequency", f"{profile_data['stats']['showdown_frequency']:.1%}")
+            
+            # Display AI analysis
+            with st.expander("🤖 AI Analysis", expanded=False):
+                if 'analysis' in profile_data:
+                    st.markdown(profile_data['analysis'].get('analysis', ''))
+            
+            # Display hand insights
+            with st.expander("🎯 Hand Performance Insights", expanded=False):
+                if 'hand_insights' in profile_data:
+                    st.markdown(profile_data['hand_insights'].get('insights', ''))
 
 def main():
     st.set_page_config(
@@ -55,7 +86,11 @@ def main():
     # Main content
     st.markdown('<div class="main-content">', unsafe_allow_html=True)
     
-    # 1. Stack Size Section (Top Priority)
+    # Player Profile Section
+    if not st.session_state.minimal_mode:
+        display_player_profile()
+    
+    # 1. Stack Size Section
     st.markdown('<div class="section-container prominent">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">💰 Stack Size</div>', unsafe_allow_html=True)
     stack = create_stack_size_input()
@@ -117,6 +152,17 @@ def main():
             
             st.session_state.loading = False
             display_recommendation(recommendation, st.session_state.minimal_mode)
+            
+            # Record the hand in the database
+            ai_analyzer = AIAnalysis()
+            ai_analyzer.db.record_hand(
+                position=position,
+                hole_cards=st.session_state.hole_cards,
+                community_cards=community_cards,
+                action_taken=recommendation['action'],
+                pot_size=pot,
+                stack_size=stack
+            )
     
     # Statistics section
     if not st.session_state.minimal_mode and st.session_state.hole_cards:
