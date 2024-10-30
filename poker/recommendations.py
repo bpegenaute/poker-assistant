@@ -16,7 +16,8 @@ class RecommendationEngine:
         position: str,
         pot_size: float,
         to_call: float,
-        stack_size: float
+        stack_size: float,
+        vs_position: str = None
     ) -> Dict:
         # Calculate hand strength and GTO-adjusted equity
         hand_strength = self.evaluator.evaluate_hand_strength(hole_cards, community_cards)
@@ -25,14 +26,16 @@ class RecommendationEngine:
         
         # Calculate pot odds and position-adjusted equity
         pot_odds = self.calculator.calculate_pot_odds(to_call, pot_size)
-        equity = self.gto_engine.calculate_hand_equity(adjusted_strength, position)
+        equity = self.gto_engine.calculate_hand_equity(adjusted_strength, position, vs_position)
         
-        # Get GTO-based action frequencies
-        action_distribution = self.gto_engine.get_gto_action_distribution(position, adjusted_strength)
+        # Get GTO-based action frequencies with position considerations
+        action_distribution = self.gto_engine.get_gto_action_distribution(
+            position, adjusted_strength, vs_position
+        )
         
-        # Calculate EVs for each action
+        # Calculate EVs for each action with enhanced position logic
         evs = self.gto_engine.calculate_gto_ev(
-            adjusted_strength, pot_size, to_call, position, stack_size
+            adjusted_strength, pot_size, to_call, position, stack_size, vs_position
         )
         
         # Determine optimal action based on GTO principles
@@ -53,7 +56,8 @@ class RecommendationEngine:
                 evs[optimal_action],
                 position,
                 action_distribution,
-                range_strength
+                range_strength,
+                vs_position
             )
         }
 
@@ -65,15 +69,30 @@ class RecommendationEngine:
         ev: float,
         position: str,
         action_freq: Dict[str, float],
-        range_strength: float
+        range_strength: float,
+        vs_position: str = None
     ) -> str:
+        position_context = f"vs {vs_position}" if vs_position else "in general"
+        
+        position_analysis = f"""
+        Position Analysis ({position} {position_context}):
+        - Position Range: {self.gto_engine.position_ranges[position]['range']:.2%}
+        - RFI Frequency: {self.gto_engine.position_ranges[position]['rfi']:.2%}
+        - 3-Bet Range: {self.gto_engine.position_ranges[position]['3bet']:.2%}
+        """
+        
+        if vs_position:
+            pvp_mult = self.gto_engine.pvp_adjustments[position].get(vs_position, 1.0)
+            position_analysis += f"- Position vs Position Adjustment: {pvp_mult:.2f}x\n"
+        
         return f"""
         GTO Analysis:
         - Raw hand strength: {hand_strength:.2%}
         - Range strength: {range_strength:.2%}
         - Pot odds: {pot_odds:.2%}
         - Expected value: ${ev:.2f}
-        - Position: {position}
+        
+        {position_analysis}
         
         Recommended frequencies in this spot:
         - Raise: {action_freq['raise']:.1%}
