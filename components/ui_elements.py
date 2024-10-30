@@ -19,6 +19,38 @@ def inject_custom_css():
             --border-color: #404040;
         }
 
+        /* Position button styles */
+        .position-button {
+            width: 100%;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            border: 2px solid var(--primary-color);
+            background-color: var(--background-card);
+            color: var(--text-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .position-button:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .position-button.selected {
+            background-color: var(--primary-color);
+            box-shadow: 0 0 10px var(--primary-color);
+        }
+
+        .position-indicator {
+            text-align: center;
+            padding: 0.5rem;
+            margin-top: 1rem;
+            background-color: var(--background-card);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
         /* Layout improvements */
         .main {
             padding: 1rem !important;
@@ -61,7 +93,6 @@ def inject_custom_css():
             font-weight: bold;
         }
 
-        /* Card styles with improved visuals */
         .card {
             background-color: var(--background-card);
             border-radius: 8px;
@@ -76,14 +107,12 @@ def inject_custom_css():
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
-        /* Street separation in community cards */
         .street-separator {
             border-left: 2px solid var(--primary-color);
             margin: 0.5rem 0;
             padding-top: 1rem;
         }
 
-        /* Stack size unit label */
         .stack-size-unit {
             margin-top: 30px;
             color: var(--text-color);
@@ -91,7 +120,6 @@ def inject_custom_css():
             font-weight: bold;
         }
 
-        /* Recommendation button container */
         .recommendation-button-container {
             margin-top: 2rem;
             padding: 1rem;
@@ -100,7 +128,6 @@ def inject_custom_css():
             border: 2px solid var(--primary-color);
         }
 
-        /* Interactive elements */
         .quick-button {
             background-color: var(--primary-color);
             color: var(--text-color);
@@ -127,7 +154,6 @@ def inject_custom_css():
             transform: translateY(1px);
         }
 
-        /* Button container */
         .preset-buttons {
             display: flex;
             gap: 10px;
@@ -135,7 +161,6 @@ def inject_custom_css():
             justify-content: center;
         }
 
-        /* Tooltip styles */
         .tooltip {
             position: relative;
             display: inline-block;
@@ -156,9 +181,6 @@ def inject_custom_css():
             transform: translateX(-50%);
             opacity: 0;
             transition: opacity 0.3s;
-            font-size: 14px;
-            white-space: nowrap;
-            border: 1px solid var(--border-color);
         }
 
         .tooltip:hover .tooltip-text {
@@ -166,7 +188,6 @@ def inject_custom_css():
             opacity: 1;
         }
 
-        /* Keyboard shortcut hints */
         .shortcut-hint {
             position: absolute;
             right: 8px;
@@ -178,26 +199,10 @@ def inject_custom_css():
             color: var(--text-secondary);
         }
 
-        /* Loading animation */
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .loading {
-            animation: pulse 1.5s infinite;
-            text-align: center;
-            font-size: 1.2rem;
-            color: var(--primary-color);
-        }
-
-        /* Action colors */
         .action-raise { color: var(--success-color) !important; }
         .action-call { color: var(--primary-color) !important; }
         .action-fold { color: var(--danger-color) !important; }
 
-        /* Responsive adjustments */
         @media (max-width: 768px) {
             .card {
                 padding: 1rem;
@@ -228,6 +233,9 @@ def create_stack_size_input() -> float:
 
 def create_quick_position_selector() -> str:
     """Create a quick position selector with prominent buttons"""
+    if 'selected_position' not in st.session_state:
+        st.session_state.selected_position = None
+
     positions = {
         'BTN': ('Button', 'Last to act preflop, best position'),
         'CO': ('Cutoff', 'Second-best position, one before button'),
@@ -238,14 +246,29 @@ def create_quick_position_selector() -> str:
     }
     
     cols = st.columns(len(positions))
-    selected_position = None
     
     for i, (pos, (label, tooltip)) in enumerate(positions.items()):
         with cols[i]:
-            if st.button(label, key=f'pos_{pos}', help=tooltip):
-                selected_position = pos
+            is_selected = st.session_state.selected_position == pos
+            button_class = "position-button selected" if is_selected else "position-button"
+            
+            if st.button(
+                label,
+                key=f'pos_{pos}',
+                help=tooltip,
+                on_click=lambda p=pos: setattr(st.session_state, 'selected_position', p)
+            ):
+                st.session_state.selected_position = pos
+
+    if st.session_state.selected_position:
+        st.markdown(
+            f'<div class="position-indicator">Selected Position: {positions[st.session_state.selected_position][0]}</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("Please select your position at the table")
     
-    return selected_position
+    return st.session_state.selected_position
 
 def create_quick_hand_selector() -> Tuple[str, str]:
     """Create a quick hand selection interface"""
@@ -344,7 +367,6 @@ def create_community_cards_selector() -> List[str]:
     """Create a community cards selector with street separation"""
     community_cards = []
     
-    # Flop
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-subtitle">Flop</div>', unsafe_allow_html=True)
     flop_cols = st.columns(3)
@@ -367,7 +389,6 @@ def create_community_cards_selector() -> List[str]:
                 suit_map = {'♣': 'c', '♦': 'd', '♥': 'h', '♠': 's'}
                 community_cards.append(f"{rank}{suit_map[suit]}")
     
-    # Turn
     if len(community_cards) == 3:
         st.markdown('<div class="street-separator"></div>', unsafe_allow_html=True)
         st.markdown('<div class="section-subtitle">Turn</div>', unsafe_allow_html=True)
@@ -390,7 +411,6 @@ def create_community_cards_selector() -> List[str]:
                 suit_map = {'♣': 'c', '♦': 'd', '♥': 'h', '♠': 's'}
                 community_cards.append(f"{rank}{suit_map[suit]}")
     
-    # River
     if len(community_cards) == 4:
         st.markdown('<div class="street-separator"></div>', unsafe_allow_html=True)
         st.markdown('<div class="section-subtitle">River</div>', unsafe_allow_html=True)

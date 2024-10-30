@@ -26,6 +26,8 @@ def initialize_session_state():
         st.session_state.loading = False
     if 'stack_size' not in st.session_state:
         st.session_state.stack_size = 100.0
+    if 'selected_position' not in st.session_state:
+        st.session_state.selected_position = None
 
 def main():
     st.set_page_config(
@@ -42,9 +44,9 @@ def main():
     with col1:
         st.title("Poker Assistant")
     with col2:
-        st.session_state.minimal_mode = st.toggle('Minimal Mode 🔄', st.session_state.minimal_mode, help="Toggle between full and minimal display")
+        st.session_state.minimal_mode = st.toggle('Minimal Mode 🔄', st.session_state.minimal_mode)
     with col3:
-        st.session_state.window_docked = st.toggle('Dock Window 📌', st.session_state.window_docked, help="Keep window on top")
+        st.session_state.window_docked = st.toggle('Dock Window 📌', st.session_state.window_docked)
     
     # Quick Start Guide
     if not st.session_state.minimal_mode:
@@ -97,6 +99,8 @@ def main():
     if get_rec or st.session_state.get('enter_pressed', False):
         if not st.session_state.hole_cards:
             st.error("⚠️ Please select your hole cards first!")
+        elif not position:
+            st.error("⚠️ Please select your position at the table!")
         else:
             st.session_state.loading = True
             st.markdown('<div class="loading">Calculating optimal play...</div>', unsafe_allow_html=True)
@@ -105,7 +109,7 @@ def main():
             recommendation = engine.get_recommendation(
                 st.session_state.hole_cards,
                 community_cards,
-                position or 'MP',  # Default to MP if no position selected
+                position,
                 pot,
                 to_call,
                 stack
