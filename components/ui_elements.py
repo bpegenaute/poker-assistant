@@ -39,14 +39,20 @@ def inject_custom_css():
             margin: 0.25rem;
             cursor: pointer;
             display: inline-block;
+            border: none;
+            font-size: 14px;
+            transition: background-color 0.2s;
         }
 
         .quick-button:hover {
-            opacity: 0.9;
+            background-color: var(--success-color);
         }
 
-        .quick-button.active {
-            background-color: var(--success-color);
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: center;
         }
 
         /* Minimal mode styles */
@@ -86,11 +92,19 @@ def inject_custom_css():
         </style>
 
         <script>
+        function setToCall(button, multiplier) {
+            const pot = parseFloat(document.querySelector('#pot_size').value) || 0;
+            const toCallInput = document.querySelector('#to_call');
+            if (toCallInput) {
+                toCallInput.value = (pot * multiplier).toFixed(2);
+                toCallInput.dispatchEvent(new Event('input'));
+            }
+        }
+
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
-                document.querySelector('button:contains("Get Recommendation")').click();
+                document.querySelector('button[data-testid="get_rec"]')?.click();
             } else if (e.key === 'Escape') {
-                // Clear selections (handled by Streamlit)
                 window.streamlit.setComponentValue('clear_selections', true);
             }
         });
@@ -101,7 +115,6 @@ def create_quick_hand_selector() -> Tuple[str, str]:
     """Create a quick hand selection interface"""
     st.markdown('<div class="card">', unsafe_allow_html=True)
     
-    # Quick hand selection buttons
     cols = st.columns([3, 3, 1])
     
     with cols[0]:
@@ -112,10 +125,11 @@ def create_quick_hand_selector() -> Tuple[str, str]:
             format_func=lambda x: x if x else 'Rank'
         )
         suit1 = st.selectbox(
-            '',
+            'Suit 1',
             [''] + list('♣♦♥♠'),
             key='quick_suit1',
-            format_func=lambda x: x if x else 'Suit'
+            format_func=lambda x: x if x else 'Suit',
+            label_visibility='collapsed'
         )
     
     with cols[1]:
@@ -126,10 +140,11 @@ def create_quick_hand_selector() -> Tuple[str, str]:
             format_func=lambda x: x if x else 'Rank'
         )
         suit2 = st.selectbox(
-            '',
+            'Suit 2',
             [''] + list('♣♦♥♠'),
             key='quick_suit2',
-            format_func=lambda x: x if x else 'Suit'
+            format_func=lambda x: x if x else 'Suit',
+            label_visibility='collapsed'
         )
 
     with cols[2]:
@@ -159,9 +174,10 @@ def create_community_cards_selector() -> List[str]:
                 key=f'comm_rank{i}'
             )
             suit = st.selectbox(
-                '',
+                f'Suit {i+1}',
                 [''] + list('♣♦♥♠'),
-                key=f'comm_suit{i}'
+                key=f'comm_suit{i}',
+                label_visibility='collapsed'
             )
             
             if rank and suit:
@@ -176,7 +192,8 @@ def create_betting_controls() -> Tuple[float, float, float]:
     """Create compact betting controls with presets"""
     st.markdown('<div class="card">', unsafe_allow_html=True)
     
-    cols = st.columns([2, 2, 2, 3])
+    # Create a single row of columns for inputs
+    cols = st.columns([2, 2, 2])
     
     with cols[0]:
         stack = st.number_input('Stack', min_value=0.0, value=100.0, step=1.0, key='stack_size')
@@ -187,17 +204,14 @@ def create_betting_controls() -> Tuple[float, float, float]:
     with cols[2]:
         to_call = st.number_input('To Call', min_value=0.0, value=0.0, step=1.0, key='to_call')
     
-    with cols[3]:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button('½ Pot'):
-                to_call = pot / 2
-        with col2:
-            if st.button('¾ Pot'):
-                to_call = pot * 0.75
-        with col3:
-            if st.button('Pot'):
-                to_call = pot
+    # Add preset buttons using CSS flexbox
+    st.markdown('''
+        <div class="preset-buttons">
+            <button class="quick-button" onclick="setToCall(this, 0.5)">½ Pot</button>
+            <button class="quick-button" onclick="setToCall(this, 0.75)">¾ Pot</button>
+            <button class="quick-button" onclick="setToCall(this, 1.0)">Pot</button>
+        </div>
+    ''', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
     return stack, pot, to_call
