@@ -1,14 +1,48 @@
 # Poker Assistant - Installation Guide
 
 ## Prerequisites
+
+### All Platforms
 - Python 3.11 or higher
 - PostgreSQL database
 - OpenAI API key for AI analysis features
+- Tesseract OCR
+
+### macOS 14+ Requirements
+1. **XCode Command Line Tools**
+```bash
+xcode-select --install
+```
+
+2. **Homebrew Package Manager**
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+3. **Python Installation (via Homebrew)**
+```bash
+brew install python@3.11
+```
+
+4. **Tesseract OCR Installation**
+```bash
+brew install tesseract
+```
+
+5. **PostgreSQL Installation**
+```bash
+brew install postgresql@14
+brew services start postgresql@14
+```
+
+6. **Screen Recording Permissions**
+- Open System Settings > Privacy & Security > Screen Recording
+- Enable permissions for your terminal application and browser
+- Restart your terminal and browser after enabling permissions
 
 ## Installation Steps
 
 ### 1. Clone the Repository
-Clone this repository to your local machine:
 ```bash
 git clone <repository-url>
 cd poker-assistant
@@ -17,134 +51,141 @@ cd poker-assistant
 ### 2. Install Dependencies
 The project requires several Python packages. Install them using pip:
 ```bash
-pip install streamlit sqlalchemy openai pillow opencv-python pytesseract numpy
+pip install -r requirements.txt
 ```
 
 ### 3. Database Setup
-The application requires a PostgreSQL database. Set up your database and configure the following environment variables:
+Configure PostgreSQL database and set environment variables:
 ```bash
-DATABASE_URL=postgresql://<username>:<password>@<host>:<port>/<database>
-PGUSER=<username>
-PGPASSWORD=<password>
-PGHOST=<host>
-PGPORT=<port>
-PGDATABASE=<database>
+# macOS Environment Setup
+echo 'export DATABASE_URL="postgresql://<username>:<password>@<host>:<port>/<database>"' >> ~/.zshrc
+echo 'export PGUSER="<username>"' >> ~/.zshrc
+echo 'export PGPASSWORD="<password>"' >> ~/.zshrc
+echo 'export PGHOST="<host>"' >> ~/.zshrc
+echo 'export PGPORT="<port>"' >> ~/.zshrc
+echo 'export PGDATABASE="<database>"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 ### 4. OpenAI API Configuration
-For AI analysis features, set up your OpenAI API key:
 ```bash
-OPENAI_API_KEY=<your-api-key>
+echo 'export OPENAI_API_KEY="<your-api-key>"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 ### 5. Application Configuration
-Create a `.streamlit` directory and add a `config.toml` file with the following contents:
-```toml
+Create a `.streamlit` directory and add a `config.toml` file:
+```bash
+mkdir -p .streamlit
+cat > .streamlit/config.toml << EOL
 [server]
 headless = true
 address = "0.0.0.0"
 port = 5000
+EOL
 ```
 
 ### 6. Running the Application
-Start the application using Streamlit:
 ```bash
 streamlit run main.py
 ```
 
-The application will be available at `http://localhost:5000`
-
-## Project Structure
-```
-├── .streamlit/
-│   └── config.toml
-├── components/
-│   ├── screen_capture_ui.py
-│   ├── tournament_ui.py
-│   └── ui_elements.py
-├── poker/
-│   ├── ai_analysis.py
-│   ├── calculator.py
-│   ├── database.py
-│   ├── evaluator.py
-│   ├── gto_engine.py
-│   ├── recommendations.py
-│   ├── screen_capture.py
-│   └── tournament_engine.py
-├── utils/
-│   └── constants.py
-└── main.py
-```
-
-## Features and Components
-
-### 1. Core Features
-- Hand evaluation and GTO-based recommendations
-- Tournament strategy adjustments
-- Position-based play analysis
-- Real-time screen capture and OCR
-- AI-powered player profiling
-
-### 2. UI Components
-- Stack size input
-- Position selector
-- Hand selector
-- Betting controls
-- Community cards selector
-- Tournament controls
-- Screen capture interface
-
-### 3. Database Components
-The application uses PostgreSQL to store:
-- Hand histories
-- Player profiles
-- Tournament results
-- Performance statistics
-
 ## Troubleshooting
 
-### Common Issues
+### macOS Specific Issues
 
-1. Database Connection Issues
-```
-Error: Could not connect to database
-Solution: Verify your PostgreSQL credentials and ensure the database server is running
-```
-
-2. OpenAI API Issues
-```
-Error: OpenAI API key not found
-Solution: Make sure you've set the OPENAI_API_KEY environment variable
-```
-
-3. Screen Capture Issues
+#### 1. Screen Capture Issues
 ```
 Error: Screen capture not working
-Solution: Ensure you have granted screen sharing permissions in your browser
+Solution: 
+1. Check System Settings > Privacy & Security > Screen Recording
+2. Ensure permissions are granted for your terminal and browser
+3. Restart applications after permission changes
+4. Run `tccutil reset ScreenCapture` if permissions are stuck
 ```
 
-### Getting Help
-If you encounter any issues:
-1. Check the application logs
-2. Verify all environment variables are set correctly
-3. Ensure all dependencies are installed properly
-4. Check your database connection
+#### 2. OCR Setup Issues
+```
+Error: Tesseract not found
+Solution:
+1. Verify installation: brew list tesseract
+2. Check PATH: echo $PATH | grep tesseract
+3. Reinstall if needed: brew reinstall tesseract
+4. Set TESSDATA_PREFIX: export TESSDATA_PREFIX=$(brew --prefix)/share/tessdata
+```
 
-## Development
+#### 3. Database Configuration
+```
+Error: Could not connect to database
+Solution:
+1. Verify PostgreSQL is running: brew services list
+2. Check connection: psql -h localhost -U <username> -d <database>
+3. Reset PostgreSQL if needed: brew services restart postgresql
+```
 
-### Adding New Features
-1. Create new components in the appropriate directory
-2. Update main.py to include new features
-3. Add any new dependencies to the installation instructions
+#### 4. Environment Variables
+```
+Error: Environment variable not set
+Solution:
+1. Check variables: env | grep PG
+2. Reload shell: source ~/.zshrc
+3. Verify in new terminal window
+4. Use launchctl to set system-wide: launchctl setenv VAR_NAME "value"
+```
 
-### Testing
-Run the application locally and test:
-1. Basic functionality (hand evaluation, recommendations)
-2. Tournament features
-3. Screen capture capabilities
-4. Database operations
+## Automated Setup (macOS)
 
-### Security Notes
-- Never commit sensitive information (API keys, passwords)
-- Use environment variables for all sensitive data
-- Keep your dependencies updated
+Save the following as `setup_macos.sh`:
+```bash
+#!/bin/bash
+
+# Check for Homebrew and install if missing
+if ! command -v brew &> /dev/null; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+
+# Install required packages
+brew install python@3.11 postgresql@14 tesseract
+
+# Start PostgreSQL
+brew services start postgresql@14
+
+# Install Python dependencies
+pip3.11 install -r requirements.txt
+
+# Setup environment variables (needs manual input)
+echo "Please enter your database configuration:"
+read -p "Database Username: " db_user
+read -s -p "Database Password: " db_pass
+echo
+read -p "Database Name: " db_name
+read -p "OpenAI API Key: " openai_key
+
+# Create environment variable file
+cat > ~/.poker_assistant_env << EOL
+export DATABASE_URL="postgresql://${db_user}:${db_pass}@localhost:5432/${db_name}"
+export PGUSER="${db_user}"
+export PGPASSWORD="${db_pass}"
+export PGHOST="localhost"
+export PGPORT="5432"
+export PGDATABASE="${db_name}"
+export OPENAI_API_KEY="${openai_key}"
+EOL
+
+echo "source ~/.poker_assistant_env" >> ~/.zshrc
+
+# Create database
+createdb "${db_name}"
+
+echo "Setup complete! Please restart your terminal and run 'streamlit run main.py'"
+```
+
+Make the script executable:
+```bash
+chmod +x setup_macos.sh
+```
+
+Run the setup script:
+```bash
+./setup_macos.sh
+```
