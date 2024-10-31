@@ -15,6 +15,7 @@ from components.ui_elements import (
     get_street_name
 )
 from components.tournament_ui import create_tournament_controls
+from components.screen_capture_ui import create_screen_capture_controls
 
 def initialize_session_state():
     """Initialize session state variables"""
@@ -32,6 +33,8 @@ def initialize_session_state():
         st.session_state.selected_position = None
     if 'player_id' not in st.session_state:
         st.session_state.player_id = "default_player"
+    if 'screen_capture_enabled' not in st.session_state:
+        st.session_state.screen_capture_enabled = False
 
 def display_player_profile():
     """Display player profile and analysis"""
@@ -69,13 +72,15 @@ def main():
     inject_custom_css()
     
     # Header section with controls
-    col1, col2, col3 = st.columns([2, 1, 1])
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
     with col1:
         st.title("Poker Assistant")
     with col2:
         st.session_state.minimal_mode = st.toggle('Minimal Mode 🔄', st.session_state.minimal_mode)
     with col3:
         st.session_state.window_docked = st.toggle('Dock Window 📌', st.session_state.window_docked)
+    with col4:
+        st.session_state.screen_capture_enabled = st.toggle('Screen Capture 📸', st.session_state.screen_capture_enabled)
     
     if not st.session_state.minimal_mode:
         create_quick_start_guide()
@@ -84,6 +89,10 @@ def main():
     
     if not st.session_state.minimal_mode:
         display_player_profile()
+    
+    # Screen Capture Controls
+    if st.session_state.screen_capture_enabled:
+        create_screen_capture_controls()
     
     # Tournament Controls
     tournament_info = create_tournament_controls()
