@@ -1,0 +1,9 @@
+feat: Add Watchdog monitoring and update port configuration
+
+- Implement Watchdog-based performance monitoring
+- Add CPU and memory usage tracking
+- Configure file system event monitoring
+- Update Streamlit port to 5001 to avoid conflicts
+- Add Watchdog and psutil dependencies
+
+This PR addresses performance monitoring requirements and port configuration updates.
