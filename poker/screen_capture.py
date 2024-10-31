@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image
 import time
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, Callable
 import logging
 import pytesseract
 import re
@@ -9,6 +9,9 @@ import io
 import base64
 import cv2
 import streamlit as st
+from threading import Thread
+from queue import Queue
+import asyncio
 
 class PokerScreenCapture:
     def __init__(self):
@@ -20,6 +23,10 @@ class PokerScreenCapture:
             'stack': {'top': 150, 'left': 0, 'width': 200, 'height': 50}
         }
         self.is_calibrated = False
+        self.is_monitoring = False
+        self.capture_interval = 2.0  # seconds
+        self.analysis_queue = Queue()
+        self.last_analysis = {}
         self.setup_logging()
 
     def setup_logging(self):
@@ -158,7 +165,7 @@ class PokerScreenCapture:
         processed = self.process_image(image)
         text = self.extract_text(processed)
         
-        result = {'type': region_name, 'raw_text': text}
+        result = {'type': region_name, 'raw_text': text, 'timestamp': time.time()}
         
         if region_name in ['hole_cards', 'community_cards']:
             result['cards'] = self.parse_cards(text)
@@ -177,3 +184,93 @@ class PokerScreenCapture:
         except Exception as e:
             self.logger.error(f"Image processing failed: {str(e)}")
             return {'error': str(e)}
+
+    def start_continuous_capture(self, callback: Callable[[Dict], None] = None):
+        """Start continuous screen capture and analysis"""
+        if not self.is_calibrated:
+            self.logger.error("Screen regions not calibrated")
+            return False
+
+        self.is_monitoring = True
+        self.monitor_thread = Thread(target=self._continuous_capture_loop, 
+                                  args=(callback,), daemon=True)
+        self.monitor_thread.start()
+        return True
+
+    def stop_continuous_capture(self):
+        """Stop continuous screen capture"""
+        self.is_monitoring = False
+        if hasattr(self, 'monitor_thread'):
+            self.monitor_thread.join(timeout=1.0)
+
+    def _continuous_capture_loop(self, callback: Callable[[Dict], None] = None):
+        """Main loop for continuous capture and analysis"""
+        while self.is_monitoring:
+            try:
+                # Process any queued captures
+                while not self.analysis_queue.empty():
+                    capture_data = self.analysis_queue.get()
+                    results = {}
+                    
+                    for region_name in self.regions:
+                        result = self.process_captured_image(
+                            capture_data, region_name
+                        )
+                        results[region_name] = result
+                    
+                    # Store last analysis
+                    self.last_analysis = results
+                    
+                    # Call callback if provided
+                    if callback and callable(callback):
+                        callback(results)
+                    
+                    # Log significant changes
+                    self._log_significant_changes(results)
+                    
+                time.sleep(0.1)  # Prevent busy waiting
+                
+            except Exception as e:
+                self.logger.error(f"Error in continuous capture loop: {str(e)}")
+                time.sleep(1.0)  # Wait before retrying
+
+    def _log_significant_changes(self, results: Dict):
+        """Log significant changes in the poker game state"""
+        try:
+            # Compare with last analysis
+            if not hasattr(self, '_last_logged_state'):
+                self._last_logged_state = {}
+            
+            changes = []
+            
+            # Check for new cards
+            for region in ['hole_cards', 'community_cards']:
+                if region in results:
+                    new_cards = results[region].get('cards', [])
+                    old_cards = self._last_logged_state.get(region, {}).get('cards', [])
+                    
+                    if new_cards != old_cards:
+                        changes.append(f"{region}: {' '.join(new_cards)}")
+            
+            # Check for significant pot changes
+            if 'pot' in results:
+                new_pot = results['pot'].get('value', 0)
+                old_pot = self._last_logged_state.get('pot', {}).get('value', 0)
+                if abs(new_pot - old_pot) > 1.0:  # Significant change threshold
+                    changes.append(f"Pot: ${new_pot:.2f}")
+            
+            # Log changes if any
+            if changes:
+                self.logger.info("Game state changes detected: " + "; ".join(changes))
+                self._last_logged_state = results
+                
+        except Exception as e:
+            self.logger.error(f"Error logging changes: {str(e)}")
+
+    def get_last_analysis(self) -> Dict:
+        """Get the results of the last analysis"""
+        return self.last_analysis
+
+    def add_capture_to_queue(self, base64_img: str):
+        """Add a new capture to the analysis queue"""
+        self.analysis_queue.put(base64_img)

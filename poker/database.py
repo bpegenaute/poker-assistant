@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, JSON, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey, JSON, Boolean, true, false
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -28,7 +28,7 @@ class Result(Base):
     id = Column(Integer, primary_key=True)
     hand_id = Column(Integer, ForeignKey('hands.id'))
     profit_loss = Column(Float)
-    showdown_reached = Column(Boolean, default=False)
+    showdown_reached = Column(Boolean, default=false)
     opponent_cards = Column(String, nullable=True)  # JSON string of opponent cards if shown
     
     hand = relationship("Hand", back_populates="result")
