@@ -1,12 +1,9 @@
 import streamlit as st
 from poker.screen_capture import PokerScreenCapture
-import tempfile
-import os
-from PIL import Image
-import io
+import json
 
 def create_screen_capture_controls():
-    """Create UI controls for screen capture functionality"""
+    """Create UI controls for browser-based screen capture functionality"""
     st.markdown("### 📸 Screen Capture Settings")
     
     # Initialize screen capture in session state if not exists
@@ -15,60 +12,116 @@ def create_screen_capture_controls():
         
     if 'ocr_results' not in st.session_state:
         st.session_state.ocr_results = {}
-    
+
+    # Add JavaScript for screen capture
+    st.markdown("""
+        <script>
+        async function captureScreen() {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { mediaSource: "screen" }
+                });
+                
+                const track = stream.getVideoTracks()[0];
+                const imageCapture = new ImageCapture(track);
+                const bitmap = await imageCapture.grabFrame();
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = bitmap.width;
+                canvas.height = bitmap.height;
+                const context = canvas.getContext('2d');
+                context.drawImage(bitmap, 0, 0);
+                
+                const base64Data = canvas.toDataURL('image/png');
+                
+                // Clean up
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Send data back to Streamlit
+                window.parent.postMessage({
+                    type: 'screen_capture',
+                    data: base64Data
+                }, '*');
+                
+            } catch (err) {
+                console.error('Screen capture failed:', err);
+                window.parent.postMessage({
+                    type: 'screen_capture_error',
+                    error: err.message
+                }, '*');
+            }
+        }
+
+        // Add capture button
+        const captureBtn = document.createElement('button');
+        captureBtn.innerText = 'Capture Screen';
+        captureBtn.onclick = captureScreen;
+        document.body.appendChild(captureBtn);
+        </script>
+    """, unsafe_allow_html=True)
+
     # Calibration section
     st.subheader("Calibration")
-    uploaded_file = st.file_uploader(
+    
+    # Custom file uploader for template
+    template_file = st.file_uploader(
         "Upload template image for calibration",
         type=['png', 'jpg', 'jpeg'],
         help="Upload a screenshot of your poker table to calibrate the screen regions"
     )
-    
-    if uploaded_file is not None:
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            template_path = tmp_file.name
+
+    if template_file is not None:
+        import base64
+        
+        # Convert uploaded file to base64
+        template_base64 = base64.b64encode(template_file.getvalue()).decode()
         
         if st.button("Calibrate Regions"):
             with st.spinner("Calibrating screen regions..."):
-                if st.session_state.screen_capture.calibrate_regions(template_path):
+                if st.session_state.screen_capture.calibrate_regions(template_base64):
                     st.success("Screen regions calibrated successfully!")
                 else:
                     st.error("Calibration failed. Please try again with a different template.")
-        
-        # Clean up temporary file
-        os.unlink(template_path)
-    
+
     # Region preview section
     if st.session_state.screen_capture.is_calibrated:
         st.subheader("Region Preview")
         
-        if st.button("Capture and Analyze Current View"):
-            cols = st.columns(len(st.session_state.screen_capture.regions))
-            
-            for i, (region_name, _) in enumerate(st.session_state.screen_capture.regions.items()):
-                with cols[i]:
-                    st.markdown(f"**{region_name.replace('_', ' ').title()}**")
-                    img = st.session_state.screen_capture.capture_region(region_name)
-                    if img:
-                        # Process and analyze the image
-                        analysis = st.session_state.screen_capture.analyze_region(region_name, img)
-                        st.session_state.ocr_results[region_name] = analysis
-                        
-                        # Convert PIL image to bytes for streamlit
-                        buf = io.BytesIO()
-                        img.save(buf, format='PNG')
-                        st.image(buf.getvalue(), use_column_width=True)
-                        
-                        # Display OCR results
-                        if 'cards' in analysis:
-                            st.write("Detected Cards:", ', '.join(analysis['cards']))
-                        elif 'value' in analysis:
-                            st.write(f"Detected Value: {analysis['value']:.2f}")
-                    else:
-                        st.error("Failed to capture region")
-    
+        # JavaScript callback handler
+        st.markdown("""
+            <script>
+            window.addEventListener('message', function(event) {
+                if (event.data.type === 'screen_capture') {
+                    // Process captured image
+                    const streamlit = window.parent.streamlit;
+                    streamlit.setComponentValue({
+                        type: 'captured_image',
+                        data: event.data.data
+                    });
+                }
+            });
+            </script>
+        """, unsafe_allow_html=True)
+
+        if 'captured_image' in st.session_state:
+            image_data = st.session_state.captured_image
+            for region_name, region in st.session_state.screen_capture.regions.items():
+                st.markdown(f"**{region_name.replace('_', ' ').title()}**")
+                
+                # Process region
+                result = st.session_state.screen_capture.process_captured_image(
+                    image_data, region_name
+                )
+                st.session_state.ocr_results[region_name] = result
+                
+                # Display results
+                if 'cards' in result:
+                    st.write("Detected Cards:", ', '.join(result['cards']))
+                elif 'value' in result:
+                    st.write(f"Detected Value: {result['value']:.2f}")
+                elif 'error' in result:
+                    st.error(f"Error processing region: {result['error']}")
+
     # Display OCR Results
     if st.session_state.ocr_results:
         st.subheader("OCR Analysis Results")
@@ -91,54 +144,12 @@ def create_screen_capture_controls():
             if 'stack' in st.session_state.ocr_results:
                 st.markdown("**Stack Size**")
                 st.write(f"${st.session_state.ocr_results['stack'].get('value', 0):.2f}")
-    
-    # Monitoring controls
-    st.subheader("Continuous Monitoring")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        monitoring_interval = st.slider(
-            "Monitoring Interval (seconds)",
-            min_value=0.1,
-            max_value=5.0,
-            value=1.0,
-            step=0.1,
-            help="How frequently to check for changes in the poker table"
-        )
-    
-    with col2:
-        if 'monitoring_active' not in st.session_state:
-            st.session_state.monitoring_active = False
-            
-        if st.button(
-            "Start Monitoring" if not st.session_state.monitoring_active else "Stop Monitoring",
-            type="primary"
-        ):
-            st.session_state.monitoring_active = not st.session_state.monitoring_active
-    
-    if st.session_state.monitoring_active:
-        st.markdown("🔴 **Monitoring Active**")
-        
-        # Create placeholder for live updates
-        if 'monitor_placeholder' not in st.session_state:
-            st.session_state.monitor_placeholder = st.empty()
-            
-        def update_callback(region_name: str, analysis: dict):
-            """Callback for monitor updates"""
-            with st.session_state.monitor_placeholder:
-                st.markdown(f"**Change detected in {region_name}**")
-                if 'cards' in analysis:
-                    st.write(f"Cards: {', '.join(analysis['cards'])}")
-                elif 'value' in analysis:
-                    st.write(f"Value: ${analysis['value']:.2f}")
-                st.session_state.ocr_results[region_name] = analysis
-        
-        # Start monitoring in a separate thread
-        try:
-            st.session_state.screen_capture.monitor_poker_table(
-                callback=update_callback,
-                interval=monitoring_interval
-            )
-        except Exception as e:
-            st.error(f"Monitoring error: {str(e)}")
-            st.session_state.monitoring_active = False
+
+    # Help text
+    st.markdown("""
+        #### How to use screen capture:
+        1. Upload a template image to calibrate the regions
+        2. Click the "Capture Screen" button
+        3. Select the poker table window/area
+        4. Wait for the analysis results
+    """)
