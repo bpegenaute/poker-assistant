@@ -3,6 +3,7 @@ from poker.evaluator import HandEvaluator
 from poker.calculator import PokerCalculator
 from poker.recommendations import RecommendationEngine
 from poker.ai_analysis import AIAnalysis
+from utils.monitoring import monitor
 from components.ui_elements import (
     inject_custom_css,
     create_quick_start_guide,
@@ -16,6 +17,7 @@ from components.ui_elements import (
 )
 from components.tournament_ui import create_tournament_controls
 from components.screen_capture_ui import create_screen_capture_controls
+import atexit
 
 def initialize_session_state():
     """Initialize session state variables"""
@@ -59,7 +61,15 @@ def display_player_profile():
                 if 'analysis' in profile_data:
                     st.markdown(profile_data['analysis'].get('analysis', ''))
 
+def cleanup():
+    """Cleanup function to stop monitoring when the app exits"""
+    monitor.stop_monitoring()
+
 def main():
+    # Start monitoring
+    monitor.start_monitoring()
+    atexit.register(cleanup)
+    
     st.set_page_config(
         page_title="Poker Assistant",
         layout="wide",
