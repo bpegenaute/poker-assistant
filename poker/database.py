@@ -54,6 +54,20 @@ class PlayerProfile(Base):
     tendencies = Column(JSON)  # Store identified patterns
     last_updated = Column(DateTime, default=datetime.utcnow)
 
+class AutomatedCapture(Base):
+    __tablename__ = 'automated_captures'
+    
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    position = Column(String)
+    active_position = Column(String)
+    pot_size = Column(Float)
+    current_bet = Column(Float)
+    player_stacks = Column(JSON)  # Store stack sizes for all positions
+    detected_cards = Column(JSON)  # Store all detected cards
+    action_history = Column(JSON)  # Store sequence of actions
+    confidence_score = Column(Float)  # OCR confidence level
+
 class Database:
     def __init__(self):
         self.engine = create_engine(os.environ['DATABASE_URL'])
@@ -61,6 +75,25 @@ class Database:
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
     
+    def record_automated_capture(self, position: str, active_position: str,
+                               pot_size: float, current_bet: float,
+                               player_stacks: dict, detected_cards: dict,
+                               action_history: list, confidence_score: float) -> AutomatedCapture:
+        """Record an automated screen capture analysis"""
+        capture = AutomatedCapture(
+            position=position,
+            active_position=active_position,
+            pot_size=pot_size,
+            current_bet=current_bet,
+            player_stacks=json.dumps(player_stacks),
+            detected_cards=json.dumps(detected_cards),
+            action_history=json.dumps(action_history),
+            confidence_score=confidence_score
+        )
+        self.session.add(capture)
+        self.session.commit()
+        return capture
+
     def record_hand(self, position: str, hole_cards: list, community_cards: list,
                    action_taken: str, pot_size: float, stack_size: float) -> Hand:
         """Record a new hand in the database"""
