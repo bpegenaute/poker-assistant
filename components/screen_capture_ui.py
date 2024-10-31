@@ -11,8 +11,6 @@ import base64
 
 def create_screen_capture_controls():
     """Create UI controls for browser-based screen capture functionality"""
-    st.markdown("### 📸 Automated Table Analysis")
-    
     # Initialize components in session state
     if 'screen_capture' not in st.session_state:
         st.session_state.screen_capture = PokerScreenCapture()
@@ -26,119 +24,150 @@ def create_screen_capture_controls():
     if 'monitoring_active' not in st.session_state:
         st.session_state.monitoring_active = False
 
-    # Calibration section with improved wizard
-    with st.expander("📊 Calibration Wizard", expanded=not st.session_state.table_analyzer.regions):
+    # Main screen capture interface
+    st.title("🎮 Automated Poker Analysis")
+    
+    # Status indicator
+    status = "🟢 Active" if st.session_state.monitoring_active else "⚪ Inactive"
+    st.markdown(f"### System Status: {status}")
+
+    # Calibration wizard
+    with st.expander("📊 Table Calibration", expanded=not st.session_state.table_analyzer.regions):
         st.markdown("""
-        ### Table Calibration Steps:
-        1. Upload a clear screenshot of your poker table
-        2. Adjust detection regions if needed
-        3. Verify calibration results
+        ### Quick Setup Guide:
+        1. Select your poker client
+        2. Upload a clear table screenshot
+        3. Verify region detection
         """)
+        
+        # Poker client selection
+        client = st.selectbox(
+            "Select Poker Client",
+            ["PokerStars", "GGPoker", "PartyPoker", "888Poker", "Other"],
+            help="Choose your poker client for optimized detection"
+        )
         
         # Template upload
         template_file = st.file_uploader(
-            "Upload poker table template",
+            "Upload Table Screenshot",
             type=['png', 'jpg', 'jpeg'],
-            help="Upload a clear screenshot of your poker table for calibration"
+            help="Upload a clear screenshot of your poker table"
         )
 
-        if template_file:
-            try:
+        try:
+            if template_file:
                 # Convert uploaded image to numpy array
                 image_bytes = template_file.read()
                 nparr = np.frombuffer(image_bytes, np.uint8)
                 template_image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 
-                # Show template image
-                st.image(template_image, caption="Uploaded template", use_column_width=True)
+                # Show template image with detected regions
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    st.image(template_image, caption="Table Screenshot", use_column_width=True)
                 
-                # Calibration button
-                if st.button("Calibrate Regions"):
-                    with st.spinner("Calibrating regions..."):
-                        if st.session_state.table_analyzer.calibrate_regions(template_image):
-                            # Test calibration
-                            analysis = st.session_state.table_analyzer.analyze_table(template_image)
-                            if analysis:
-                                st.success("✅ Calibration successful!")
-                                st.json(analysis)
+                with col2:
+                    if st.button("🎯 Calibrate Regions", type="primary"):
+                        with st.spinner("Calibrating..."):
+                            if st.session_state.table_analyzer.calibrate_regions(template_image):
+                                analysis = st.session_state.table_analyzer.analyze_table(template_image)
+                                if analysis:
+                                    st.success("✅ Calibration successful!")
+                                    st.json(analysis)
+                                else:
+                                    st.error("❌ Analysis failed. Please try a clearer image.")
                             else:
-                                st.error("❌ Calibration failed. Please try a different template.")
-                        else:
-                            st.error("❌ Calibration failed. Please try a different template.")
+                                st.error("❌ Calibration failed. Please try another screenshot.")
+        except Exception as e:
+            st.error(f"Error processing image: {str(e)}")
 
-    # Monitoring controls
-    st.subheader("🔄 Live Monitoring")
-    
+    # Control buttons in a prominent position
     col1, col2 = st.columns(2)
     with col1:
         if st.button(
-            "Start Monitoring",
+            "▶️ Start Monitoring",
             disabled=not st.session_state.table_analyzer.regions,
-            type="primary"
+            type="primary",
+            use_container_width=True
         ):
             st.session_state.monitoring_active = True
             st.session_state.screen_capture.start_continuous_capture(
                 callback=lambda img: process_captured_frame(img)
             )
-            st.success("🎥 Continuous monitoring started!")
+            st.success("🎥 Table monitoring started!")
             
     with col2:
         if st.button(
-            "Stop Monitoring",
+            "⏹️ Stop Monitoring",
             disabled=not st.session_state.monitoring_active,
-            type="secondary"
+            type="secondary",
+            use_container_width=True
         ):
             st.session_state.monitoring_active = False
             st.session_state.screen_capture.stop_continuous_capture()
-            st.info("⏹️ Monitoring stopped.")
+            st.info("Monitoring stopped.")
 
     # Live analysis display
     if st.session_state.monitoring_active:
         st.markdown("### 📊 Live Analysis")
         
-        # Create placeholders for live updates
         if 'analysis_container' not in st.session_state:
             st.session_state.analysis_container = st.empty()
             
-        # Update analysis display
         with st.session_state.analysis_container.container():
             results = st.session_state.analysis_results
             if results:
-                col1, col2, col3 = st.columns(3)
+                # Primary info in a clean layout
+                col1, col2 = st.columns(2)
                 
                 with col1:
                     st.metric(
-                        "Position",
+                        "👥 Position",
                         results.get('position', 'Unknown'),
                         f"Confidence: {results.get('position_confidence', 0):.2%}"
                     )
                     
-                    cards = results.get('hole_cards', [])
-                    st.metric("Hole Cards", ' '.join(cards) if cards else "None")
+                    hole_cards = results.get('hole_cards', [])
+                    st.metric("🎴 Hole Cards", ' '.join(hole_cards) if hole_cards else "None")
+                    
+                    community = results.get('community_cards', [])
+                    st.metric("🃏 Board", ' '.join(community) if community else "None")
                     
                 with col2:
                     st.metric(
-                        "Pot Size",
+                        "💰 Pot Size",
                         f"${results.get('pot_size', 0):.2f}",
-                        delta=f"Stack: ${results.get('stack_size', 0):.2f}"
+                        f"Stack: ${results.get('stack_size', 0):.2f}"
                     )
                     
-                    community = results.get('community_cards', [])
-                    st.metric("Community Cards", ' '.join(community) if community else "None")
-                    
-                with col3:
                     actions = results.get('actions', {})
                     for action, amount in actions.items():
                         if amount > 0:
-                            st.metric(action, f"${amount:.2f}")
-                            
-                # Show significant changes
+                            st.metric(
+                                f"⚡ {action}",
+                                f"${amount:.2f}",
+                                delta_color="normal"
+                            )
+                
+                # Show recommendations
                 changes = st.session_state.table_analyzer.detect_significant_changes()
                 if any(changes.values()):
-                    st.markdown("#### 🔔 Recent Changes")
-                    for change, occurred in changes.items():
-                        if occurred:
-                            st.info(f"• {change.replace('_', ' ').title()}")
+                    st.markdown("### 💡 Recommendation")
+                    from poker.recommendations import RecommendationEngine
+                    engine = RecommendationEngine()
+                    recommendation = engine.get_recommendation(
+                        hole_cards=results.get('hole_cards', []),
+                        community_cards=results.get('community_cards', []),
+                        position=results.get('position', 'Unknown'),
+                        pot_size=results.get('pot_size', 0),
+                        to_call=max(results.get('actions', {}).values()),
+                        stack_size=results.get('stack_size', 100)
+                    )
+                    
+                    if recommendation:
+                        st.success(f"**{recommendation['action']}** ({recommendation['confidence']:.0%} confident)")
+                        with st.expander("View Reasoning"):
+                            st.markdown(recommendation['reasoning'])
 
 def process_captured_frame(base64_image: str):
     """Process a captured frame and update analysis"""
@@ -158,23 +187,25 @@ def process_captured_frame(base64_image: str):
             if any(changes.values()):
                 from poker.database import Database
                 db = Database()
-                db.record_automated_capture(
-                    position=analysis['position'],
-                    active_position=analysis['position'],
-                    pot_size=analysis['pot_size'],
-                    current_bet=max(analysis['actions'].values()),
-                    player_stacks={'hero': analysis['stack_size']},
-                    detected_cards={
-                        'hole_cards': analysis['hole_cards'],
-                        'community_cards': analysis['community_cards']
-                    },
-                    action_history=[{
-                        'action': action,
-                        'amount': amount
-                    } for action, amount in analysis['actions'].items() if amount > 0],
-                    confidence_score=analysis['position_confidence']
-                )
-                db.close()
-                
+                try:
+                    db.record_automated_capture(
+                        position=analysis['position'],
+                        active_position=analysis['position'],
+                        pot_size=analysis['pot_size'],
+                        current_bet=max(analysis['actions'].values()),
+                        player_stacks={'hero': analysis['stack_size']},
+                        detected_cards={
+                            'hole_cards': analysis['hole_cards'],
+                            'community_cards': analysis['community_cards']
+                        },
+                        action_history=[{
+                            'action': action,
+                            'amount': amount
+                        } for action, amount in analysis['actions'].items() if amount > 0],
+                        confidence_score=analysis['position_confidence']
+                    )
+                finally:
+                    db.close()
+                    
     except Exception as e:
         st.error(f"Error processing frame: {str(e)}")
